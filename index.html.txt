@@ -1,0 +1,50 @@
+class AdjacencyList:
+    def __init__(self):
+        self.graph = []  # 核心存储，索引=用户ID，元素=字典{好友ID: 用户信息}
+        self.max_id = 0  # 记录当前最大用户ID，用于动态扩展列表
+
+    # 添加用户节点
+    def add_node(self, user_id, user_info):
+        if not isinstance(user_id, int):
+            raise ValueError("用户ID必须为整数")
+        # 若用户ID超过当前最大ID，动态扩展邻接表
+        if user_id > self.max_id:
+            self.graph.extend([{} for _ in range(user_id - self.max_id)])
+            self.max_id = user_id
+        self.graph[user_id] = user_info
+
+    # 删除用户节点（同时删除所有关联边）
+    def delete_node(self, user_id):
+        if user_id < 0 or user_id > self.max_id:
+            raise ValueError("用户ID不存在")
+        # 遍历删除所有与该用户相连的边
+        for i in range(len(self.graph)):
+            if user_id in self.graph[i]:
+                del self.graph[i][user_id]
+        # 清空该用户信息
+        self.graph[user_id] = {}
+
+    # 添加无向好友关系边（双向绑定）
+    def add_edge(self, u1_id, u2_id):
+        if u1_id < 0 or u1_id > self.max_id or u2_id < 0 or u2_id > self.max_id:
+            raise ValueError("用户ID不存在")
+        if u1_id == u2_id:
+            raise ValueError("不能添加自身为好友")
+        # 无向图双向添加好友关系
+        self.graph[u1_id][u2_id] = self.graph[u2_id]
+        self.graph[u2_id][u1_id] = self.graph[u1_id]
+
+    # 删除无向好友关系边（双向删除）
+    def delete_edge(self, u1_id, u2_id):
+        if u1_id < 0 or u1_id > self.max_id or u2_id < 0 or u2_id > self.max_id:
+            raise ValueError("用户ID不存在")
+        if u2_id in self.graph[u1_id]:
+            del self.graph[u1_id][u2_id]
+        if u1_id in self.graph[u2_id]:
+            del self.graph[u2_id][u1_id]
+
+    # 获取用户直接好友（一度人脉）
+    def get_neighbors(self, user_id):
+        if user_id < 0 or user_id > self.max_id:
+            raise ValueError("用户ID不存在")
+        return self.graph[user_id]
