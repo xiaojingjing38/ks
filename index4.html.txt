@@ -1,0 +1,59 @@
+from PyQt5.QtWidgets import (QMainWindow, QPushButton, QLineEdit,
+                             QTextEdit, QVBoxLayout, QWidget, QLabel, QMessageBox)
+from PyQt5.QtCore import Qt
+
+class MainWindow(QMainWindow):
+    def __init__(self, service):
+        super().__init__()
+        self.service = service  # 注入业务逻辑模块实例
+        self.init_ui()  # 初始化界面
+
+    # 初始化GUI界面
+    def init_ui(self):
+        self.setWindowTitle("社交网络图谱分析及智能推荐系统")
+        self.setGeometry(100, 100, 1000, 600)  # 窗口位置和大小
+
+        # 中心窗口与布局
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
+
+        # 社交距离计算控件
+        layout.addWidget(QLabel("★ 最短社交距离计算", alignment=Qt.AlignCenter))
+        self.start_id_input = QLineEdit()
+        self.start_id_input.setPlaceholderText("请输入起点用户ID（数字）")
+        self.end_id_input = QLineEdit()
+        self.end_id_input.setPlaceholderText("请输入终点用户ID（数字）")
+        self.calc_btn = QPushButton("点击计算最短距离")
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)  # 结果面板只读
+
+        # 添加控件到布局
+        layout.addWidget(self.start_id_input)
+        layout.addWidget(self.end_id_input)
+        layout.addWidget(self.calc_btn)
+        layout.addWidget(self.result_text)
+
+        # 绑定信号与槽（按钮点击触发计算）
+        self.calc_btn.clicked.connect(self.calc_social_distance)
+
+    # 计算社交距离槽函数（核心交互）
+    def calc_social_distance(self):
+        try:
+            # 输入校验与转换
+            start_id = int(self.start_id_input.text().strip())
+            end_id = int(self.end_id_input.text().strip())
+            # 调用业务逻辑模块获取结果
+            distance, path = self.service.calculate_social_distance(start_id, end_id)
+            # 结果展示
+            if distance == -1:
+                self.result_text.setText(f"【结果】用户{start_id}与用户{end_id}无社交关联")
+            else:
+                path_str = "→".join(map(str, path))
+                self.result_text.setText(f"【最短社交距离】：{distance}\n【最短路径】：{path_str}")
+        # 输入非数字/空值异常
+        except ValueError as e:
+            QMessageBox.warning(self, "输入错误", "请输入有效的数字用户ID，不可为空！")
+        # 其他程序异常
+        except Exception as e:
+            QMessageBox.critical(self, "程序错误", f"查询失败：{str(e)}")
