@@ -1,0 +1,119 @@
+from collections import deque
+
+class Algorithm:
+    def __init__(self, adj_list: AdjacencyList):
+        self.adj_list = adj_list  # 注入自主实现的邻接表
+
+    # 1. BFS计算两用户最短社交距离并返回路径
+    def bfs_shortest_path(self, start_id, end_id):
+        # 异常处理：用户ID不存在
+        if start_id < 0 or start_id > self.adj_list.max_id or end_id < 0 or end_id > self.adj_list.max_id:
+            raise ValueError("用户ID不存在")
+        # 起点和终点为同一用户
+        if start_id == end_id:
+            return 0, [start_id]
+        # 初始化BFS参数
+        queue = deque([start_id])
+        visited = set([start_id])
+        prev = {}  # 前驱节点字典，用于回溯路径
+        found = False
+
+        while queue and not found:
+            current_id = queue.popleft()
+            neighbors = self.adj_list.get_neighbors(current_id)
+            for neighbor_id in neighbors:
+                if neighbor_id not in visited:
+                    visited.add(neighbor_id)
+                    prev[neighbor_id] = current_id
+                    queue.append(neighbor_id)
+                    # 找到终点则终止遍历
+                    if neighbor_id == end_id:
+                        found = True
+                        break
+        # 无连通路径
+        if not found:
+            return -1, []
+        # 回溯前驱节点生成路径
+        path = []
+        current = end_id
+        while current != start_id:
+            path.append(current)
+            current = prev[current]
+        path.append(start_id)
+        path.reverse()  # 反转为「起点→终点」顺序
+        return len(path) - 1, path  # 距离=路径长度-1
+
+    # 2. BFS查询一度人脉
+    def bfs_first_contact(self, user_id):
+        neighbors = self.adj_list.get_neighbors(user_id)
+        return [(k, v) for k, v in neighbors.items()]
+
+    # 3. BFS查询二度人脉（排除自身和一度人脉）
+    def bfs_second_contact(self, user_id):
+        first_contacts = set(self.adj_list.get_neighbors(user_id).keys())
+        second_contacts = set()
+        visited = set([user_id]) | first_contacts
+        queue = deque(first_contacts)
+
+        while queue:
+            current_id = queue.popleft()
+            neighbors = self.adj_list.get_neighbors(current_id)
+            for neighbor_id in neighbors:
+                if neighbor_id not in visited:
+                    visited.add(neighbor_id)
+                    second_contacts.add(neighbor_id)
+        # 返回二度人脉ID和信息
+        return [(id, self.adj_list.get_neighbors(id)) for id in second_contacts]
+
+    # 4. 计算杰卡德相似度（兴趣标签相似度）
+    def _jaccard_similarity(self, list1, list2):
+        set1 = set(list1)
+        set2 = set(list2)
+        intersection = len(set1 & set2)
+        union = len(set1 | set2)
+        return intersection / union if union != 0 else 0
+
+    # 5. Top-K智能推荐（兴趣相似度0.6 + 共同好友数0.4）
+    def top_k_recommend(self, user_id, k, hash_table: HashTable):
+        # 获取目标用户信息
+        user_info = hash_table.get(user_id)
+        if not user_info:
+            raise ValueError("用户ID不存在")
+        user_interest = user_info["interest"].split(";")  # 分割兴趣标签
+        user_friends = set(self.adj_list.get_neighbors(user_id).keys())  # 目标用户好友集合
+        # 避免除零，最大好友数默认为1
+        max_friend_count = len(user_friends) if len(user_friends) > 0 else 1
+        recommend_scores = {}  # 存储推荐得分：{用户ID: (综合得分, 兴趣相似度, 共同好友数)}
+
+        # 遍历所有用户，排除自身和已好友
+        for candidate_id in range(self.adj_list.max_id + 1):
+            if candidate_id == user_id or candidate_id in user_friends:
+                continue
+            candidate_info = hash_table.get(candidate_id)
+            if not candidate_info:
+                continue
+            # 计算兴趣相似度
+            candidate_interest = candidate_info["interest"].split(";")
+            jaccard = self._jaccard_similarity(user_interest, candidate_interest)
+            # 计算共同好友数
+            candidate_friends = set(self.adj_list.get_neighbors(candidate_id).keys())
+            common_friends = len(user_friends & candidate_friends)
+            # 共同好友数归一化
+            norm_common = common_friends / max_friend_count
+            # 计算综合得分
+            total_score = 0.6 * jaccard + 0.4 * norm_common
+            recommend_scores[candidate_id] = (total_score, jaccard, common_friends)
+
+        # 按综合得分降序排序，取前K个
+        sorted_recommend = sorted(recommend_scores.items(), key=lambda x: x[1][0], reverse=True)[:k]
+        # 构造推荐结果（含推荐理由）
+        recommend_result = []
+        for c_id, (score, j, cf) in sorted_recommend:
+            c_info = hash_table.get(c_id)
+            recommend_result.append({
+                "user_id": c_id,
+                "name": c_info["name"],
+                "score": round(score, 2),
+                "reason": f"共同兴趣相似度:{j:.2f},共同好友数:{cf}"
+            })
+        return recommend_result
