@@ -1,0 +1,44 @@
+class HashTable:
+    def __init__(self, table_size=1009):
+        self.table_size = table_size  # 表大小为质数，减少冲突
+        self.table = [[] for _ in range(self.table_size)]  # 列表嵌套链表存储
+
+    # 哈希函数：取余法
+    def _hash(self, key):
+        return key % self.table_size
+
+    # 插入/更新键值对（用户ID为键，用户信息为值）
+    def put(self, key, value):
+        if not isinstance(key, int):
+            raise ValueError("键(用户ID)必须为整数")
+        hash_key = self._hash(key)
+        # 遍历链表，若键已存在则更新值
+        for i, (k, v) in enumerate(self.table[hash_key]):
+            if k == key:
+                self.table[hash_key][i] = (key, value)
+                return
+        # 键不存在则追加至链表
+        self.table[hash_key].append((key, value))
+
+    # 查询键对应的值
+    def get(self, key):
+        if not isinstance(key, int):
+            raise ValueError("键(用户ID)必须为整数")
+        hash_key = self._hash(key)
+        # 遍历链表查找键
+        for k, v in self.table[hash_key]:
+            if k == key:
+                return v
+        return None  # 键不存在返回None
+
+    # 删除键值对
+    def remove(self, key):
+        if not isinstance(key, int):
+            raise ValueError("键(用户ID)必须为整数")
+        hash_key = self._hash(key)
+        # 遍历链表查找并删除
+        for i, (k, v) in enumerate(self.table[hash_key]):
+            if k == key:
+                del self.table[hash_key][i]
+                return True
+        return False  # 键不存在返回False
